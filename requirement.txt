@@ -1,4 +1,4 @@
-streamlit
+astreamlit
 pandas
 streamlit-drawable-canvas
 Pillow
