@@ -7,10 +7,15 @@ from PIL import Image, ImageDraw, ImageFont
 import requests
 import streamlit as st
 
-# 直接引入，不设硬性门槛
-from docx import Document
-from docx.oxml.ns import qn
-from docx.shared import Inches, Pt, RGBColor
+# 安全尝试导入 python-docx，防止云端未安装时开机崩溃
+try:
+  from docx import Document
+  from docx.oxml.ns import qn
+  from docx.shared import Inches, Pt, RGBColor
+
+  DOCX_AVAILABLE = True
+except ImportError:
+  DOCX_AVAILABLE = False
 
 # ================= 1. 页面配置与初始化 =================
 st.set_page_config(
@@ -102,7 +107,7 @@ GB30871_SPECIFIC_ITEMS = {
     "临时用电作业": [
         "【临电-一机一闸】临时用电配电箱完好，严格执行“一机一闸一保护”，已安装合格的漏电保护器（RCD），经测试动作灵敏可靠（GB 30871 第10章）。",
         "【临电-接地与防爆】所有临时用电设备及金属外壳均已实施可靠保护接地或接零；存在爆炸或火灾危险场所的电气元件符合相应防爆等级要求。",
-        "【临-线路敷设】采用耐压等级不低于 500V 的绝缘铜芯导线；架空敷设时最大弧垂距地面不低于 2.5m（跨越道路不低于 5m）；地面走线已加装防砸、防碾压护套管。",
+        "【临电-线路敷设】采用耐压等级不低于 500V 的绝缘铜芯导线；架空敷设时最大弧垂距地面不低于 2.5m（跨越道路不低于 5m）；地面走线已加装防砸、防碾压护套管。",
         "【临电-警示与防护】配电箱、开关箱设有明显的安全警示标识，防雨、防尘、防潮措施到位；检修或非作业期间严格执行上锁挂牌（LOTO）。",
     ],
     "登高作业（高处作业）": [
@@ -408,6 +413,9 @@ def generate_work_permit_docx(
     grd_io,
     app_io,
 ):
+  if not DOCX_AVAILABLE:
+    return None
+
   doc = Document()
 
   p_title = doc.add_paragraph()
@@ -519,7 +527,12 @@ if st.button(
     "📁 确认安全措施已落实，一键生成并下载《特种作业安全许可证》",
     use_container_width=True,
 ):
-  if (
+  if not DOCX_AVAILABLE:
+    st.error(
+        "❌ 服务器未检测到 `python-docx` 库。请在 GitHub 仓库的"
+        " `requirements.txt` 文件中确保已正确写入 `python-docx` 并在后台重启应用！"
+    )
+  elif (
       not work_location.strip()
       or not work_unit.strip()
       or not worker_names.strip()
