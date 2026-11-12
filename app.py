@@ -1,7 +1,21 @@
 import datetime
 import io
 import os
+import subprocess
+import sys
 import zipfile
+
+# 终极防崩溃：如果云端没有安装 docx，通过代码自动帮它安装！
+try:
+  from docx import Document
+  from docx.oxml.ns import qn
+  from docx.shared import Inches, Pt, RGBColor
+except ImportError:
+  subprocess.check_call([sys.executable, "-m", "pip", "install", "python-docx"])
+  from docx import Document
+  from docx.oxml.ns import qn
+  from docx.shared import Inches, Pt, RGBColor
+
 import pandas as pd
 from PIL import Image, ImageDraw, ImageFont
 import requests
@@ -403,10 +417,6 @@ def generate_work_permit_docx(
     grd_io,
     app_io,
 ):
-  from docx import Document
-  from docx.oxml.ns import qn
-  from docx.shared import Inches, Pt, RGBColor
-
   doc = Document()
 
   p_title = doc.add_paragraph()
