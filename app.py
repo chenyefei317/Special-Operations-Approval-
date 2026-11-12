@@ -2,9 +2,6 @@ import datetime
 import io
 import os
 import zipfile
-from docx import Document
-from docx.oxml.ns import qn
-from docx.shared import Inches, Pt, RGBColor
 import pandas as pd
 from PIL import Image, ImageDraw, ImageFont
 import requests
@@ -406,6 +403,10 @@ def generate_work_permit_docx(
     grd_io,
     app_io,
 ):
+  from docx import Document
+  from docx.oxml.ns import qn
+  from docx.shared import Inches, Pt, RGBColor
+
   doc = Document()
 
   p_title = doc.add_paragraph()
