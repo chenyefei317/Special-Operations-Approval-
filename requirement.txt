@@ -1,7 +1,5 @@
 streamlit
 pandas
-streamlit-drawable-canvas
 Pillow
 python-docx
 requests
-qrcode
