@@ -7,15 +7,10 @@ from PIL import Image, ImageDraw, ImageFont
 import requests
 import streamlit as st
 
-# 尝试安全导入 python-docx
-try:
-  from docx import Document
-  from docx.oxml.ns import qn
-  from docx.shared import Inches, Pt, RGBColor
-
-  DOCX_AVAILABLE = True
-except ImportError:
-  DOCX_AVAILABLE = False
+# 直接引入，不设硬性门槛
+from docx import Document
+from docx.oxml.ns import qn
+from docx.shared import Inches, Pt, RGBColor
 
 # ================= 1. 页面配置与初始化 =================
 st.set_page_config(
@@ -107,7 +102,7 @@ GB30871_SPECIFIC_ITEMS = {
     "临时用电作业": [
         "【临电-一机一闸】临时用电配电箱完好，严格执行“一机一闸一保护”，已安装合格的漏电保护器（RCD），经测试动作灵敏可靠（GB 30871 第10章）。",
         "【临电-接地与防爆】所有临时用电设备及金属外壳均已实施可靠保护接地或接零；存在爆炸或火灾危险场所的电气元件符合相应防爆等级要求。",
-        "【临电-线路敷设】采用耐压等级不低于 500V 的绝缘铜芯导线；架空敷设时最大弧垂距地面不低于 2.5m（跨越道路不低于 5m）；地面走线已加装防砸、防碾压护套管。",
+        "【临-线路敷设】采用耐压等级不低于 500V 的绝缘铜芯导线；架空敷设时最大弧垂距地面不低于 2.5m（跨越道路不低于 5m）；地面走线已加装防砸、防碾压护套管。",
         "【临电-警示与防护】配电箱、开关箱设有明显的安全警示标识，防雨、防尘、防潮措施到位；检修或非作业期间严格执行上锁挂牌（LOTO）。",
     ],
     "登高作业（高处作业）": [
@@ -122,7 +117,7 @@ GB30871_SPECIFIC_ITEMS = {
     ],
     "吊装作业": [
         "【吊装-机具资质】起重机械、吊索具、卡环经检查完好且在检验有效期内，司索工、指挥人员及起重工均持有效特种作业证（GB 30871 第9章）。",
-        "【吊装-警戒试吊】吊装区域已设置安全警戒区；正式起吊前已进行试吊，确认制动, 吊点及平衡状态正常，严格遵守“十不吊”规定。",
+        "【吊装-警戒试吊】吊装区域已设置安全警戒区；正式起吊前已进行试吊，确认制动、吊点及平衡状态正常，严格遵守“十不吊”规定。",
     ],
     "盲板抽堵作业": [
         "【盲板-系统泄压】设备管道已完成卸压、排空与置换，已绘制盲板位置图并统一编号，盲板材质、厚度及垫片符合介质压力要求（GB 30871 第7章）。",
@@ -378,7 +373,6 @@ st.markdown(
 def create_signature_image(name_str):
   if not name_str.strip():
     return None
-  # 创建一张空白透明底或浅灰底的签名图片
   img = Image.new("RGBA", (180, 60), color=(248, 249, 250, 255))
   d = ImageDraw.Draw(img)
   try:
@@ -386,7 +380,6 @@ def create_signature_image(name_str):
   except Exception:
     font = ImageFont.load_default()
 
-  # 绘制手写风格蓝色/黑色签名文字
   d.text((15, 15), name_str.strip(), fill=(10, 30, 120, 255), font=font)
   bio = io.BytesIO()
   img.save(bio, format="PNG")
@@ -415,9 +408,6 @@ def generate_work_permit_docx(
     grd_io,
     app_io,
 ):
-  if not DOCX_AVAILABLE:
-    return None
-
   doc = Document()
 
   p_title = doc.add_paragraph()
@@ -484,6 +474,7 @@ def generate_work_permit_docx(
   r00.font.element.rPr.rFonts.set(qn("w:eastAsia"), "华文宋体")
   if sup_io:
     c00.add_run().add_picture(sup_io, width=Inches(1.5))
+    sup_io.seek(0)
 
   # 2. 安全监护人
   c01 = table.cell(0, 1).paragraphs[0]
@@ -495,6 +486,7 @@ def generate_work_permit_docx(
   r01.font.element.rPr.rFonts.set(qn("w:eastAsia"), "华文宋体")
   if grd_io:
     c01.add_run().add_picture(grd_io, width=Inches(1.5))
+    grd_io.seek(0)
 
   # 3. 审批人
   c10 = table.cell(1, 0).paragraphs[0]
@@ -504,6 +496,7 @@ def generate_work_permit_docx(
   r10.font.element.rPr.rFonts.set(qn("w:eastAsia"), "华文宋体")
   if app_io:
     c10.add_run().add_picture(app_io, width=Inches(1.5))
+    app_io.seek(0)
 
   # 4. 签发日期
   c11 = table.cell(1, 1).paragraphs[0]
@@ -526,9 +519,7 @@ if st.button(
     "📁 确认安全措施已落实，一键生成并下载《特种作业安全许可证》",
     use_container_width=True,
 ):
-  if not DOCX_AVAILABLE:
-    st.error("❌ 服务器未检测到 `python-docx` 库，请检查依赖配置。")
-  elif (
+  if (
       not work_location.strip()
       or not work_unit.strip()
       or not worker_names.strip()
