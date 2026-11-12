@@ -470,3 +470,85 @@ def generate_work_permit_docx(
 # ================= 12. 提交校验与生成合规档案 =================
 st.write("---")
 if st.button(
+    "📁 确认安全措施已落实，一键生成并下载《特种作业安全许可证》",
+    use_container_width=True,
+):
+  if not DOCX_AVAILABLE:
+    st.error("❌ 服务器未检测到 `python-docx` 库，请检查依赖配置。")
+  elif (
+      not work_location.strip()
+      or not work_unit.strip()
+      or not worker_names.strip()
+      or not work_content.strip()
+      or not supervisor_name.strip()
+      or not guardian_name.strip()
+      or not approver_name.strip()
+  ):
+    st.error(
+        "❌ 拦截：请完整填写【作业地点】、【作业单位】、【作业人员】、【作业内容】以及【三方签字人姓名】！"
+    )
+  elif not is_time_valid:
+    st.error(
+        "❌ 拦截：作业许可有效时间设置不合规（必须大于 0 且不超过 72"
+        " 小时），请重新核定签发与截止时间！"
+    )
+  elif not all(assessment_results):
+    st.warning(
+        "⚠️ 拦截：按照 GB 30871-2022"
+        " 强制性规范要求，现场所有安全评估项必须全部核实打钩后方可签发作业许可！"
+    )
+  else:
+    permit_number = f"PTW-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}"
+    st.success(
+        f"✅ 特种作业安全许可证审批表生成成功！许可证编号：**{permit_number}**"
+    )
+
+    permit_docx_buffer = generate_work_permit_docx(
+        permit_number,
+        work_nature,
+        selected_work_type,
+        work_location.strip(),
+        work_unit.strip(),
+        worker_names.strip(),
+        work_content.strip(),
+        issue_datetime,
+        expire_datetime,
+        duration_hours,
+        current_assessment_items,
+        assessment_results,
+        supervisor_name.strip(),
+        guardian_name.strip(),
+        approver_name.strip(),
+    )
+
+    if permit_docx_buffer:
+      docx_filename = f"特种作业审批单_{selected_work_type}_{work_location.strip()}_{permit_number}.docx"
+
+      # 自动同步至百度网盘
+      upload_to_baidu_netdisk_with_auto_refresh(
+          permit_docx_buffer.getvalue(), docx_filename
+      )
+
+      st.markdown("---")
+      st.success(
+          "🎉 特种作业审批档案已生成完毕！点击下方按钮即可下载 Word 打印："
+      )
+
+      st.download_button(
+          label="📄 下载《特种作业安全许可证》(.docx) [直接下载打印]",
+          data=permit_docx_buffer.getvalue(),
+          file_name=docx_filename,
+          mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          use_container_width=True,
+      )
+
+      st.snow()
+
+# ================= 13. 底部版权与开发者声明 =================
+st.markdown("---")
+st.markdown(
+    "<div style='text-align: center; color: gray; font-size: 14px;'>"
+    "本系统为内部合规平台，严禁商业用途 | 开发者：陈野菲 wx：13761704998"
+    "</div>",
+    unsafe_allow_html=True,
+)
