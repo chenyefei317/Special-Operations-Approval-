@@ -6,7 +6,6 @@ import pandas as pd
 from PIL import Image, ImageDraw, ImageFont
 import requests
 import streamlit as st
-from streamlit_drawable_canvas import st_canvas
 
 # 尝试安全导入 python-docx
 try:
@@ -204,7 +203,7 @@ with st.sidebar:
 
   st.markdown("### 📱 手机访问与分享")
   st.write(
-      "请将下方应用链接复制并发送至微信群，供现场人员随时随地在线填报特种作业审批。"
+      "请将下方链接复制并发送至微信群，供现场承包商随时随地在线填报特种作业审批。"
   )
 
   app_url = st.text_input(
@@ -214,8 +213,7 @@ with st.sidebar:
   st.markdown("---")
   st.markdown("### 🔗 快捷操作")
   st.info(
-      "💡 **提示**：承包商可通过手机浏览器或微信直接打开上方链接填报。特种作业有效期限最长不超过"
-      " **72 小时**。"
+      "💡 **提示**：特种作业有效期限最长不超过 **72 小时**，生成 Word 后可直接打印线下手签。"
   )
 
 # ================= 6. 主界面头部 =================
@@ -230,8 +228,7 @@ with col_title:
 
 st.markdown(
     "本系统严格依据国家标准 **GB 30871-2022《危险化学品企业特殊作业安全规范》**"
-    " 建设。手写签字为选填项，生成 Word"
-    " 文档后可直接下载打印进行线下纸质签字。"
+    " 建设。责任人签字支持输入姓名，生成 Word 文档后可打印进行线下纸质签字。"
 )
 
 # ================= 7. 模块一：作业性质、类型与基础信息 =================
@@ -355,86 +352,27 @@ for i, item_text in enumerate(current_assessment_items):
   checked = st.checkbox(item_text, key=chk_key)
   assessment_results.append(checked)
 
-# ================= 10. 模块四：三方责任人签字与手写日期（选填项） =================
+# ================= 10. 模块四：三方责任人签字（文本输入） =================
 st.write("---")
-st.subheader("✍️ 4. 责任人信息与手写签名（选填：留空则打印后线下手动签字）")
+st.subheader("✍️ 4. 三方责任人与签发日期确认")
 
 col_p1, col_p2, col_p3 = st.columns(3)
 with col_p1:
   supervisor_name = st.text_input(
-      "现场作业负责人姓名：", placeholder="选填（如：张三）"
+      "现场作业负责人姓名 (必填)：", placeholder="例如：张三"
   )
 with col_p2:
   guardian_name = st.text_input(
-      "安全监护人姓名：", placeholder="选填（如：李四）"
+      "安全监护人姓名 (必填)：", placeholder="例如：李四"
   )
 with col_p3:
-  approver_name = st.text_input("审批人姓名：", placeholder="选填（如：王五）")
+  approver_name = st.text_input(
+      "审批人姓名 (必填)：", placeholder="例如：王五"
+  )
 
 st.markdown(
-    "💡 **提示**：若不在此处画板手写签名，生成的 Word"
-    " 文件中将保留空白签名栏，方便打印后纸质手写签字。"
+    "💡 **提示**：输入上述姓名后将直接打印生成至 Word 审批单中，方便打印后进行纸质手写签字。"
 )
-
-col_c1, col_c2, col_c3 = st.columns(3)
-with col_c1:
-  st.markdown("📝 **1. 现场作业负责人签字（可选）：**")
-  canvas_supervisor = st_canvas(
-      stroke_width=3,
-      stroke_color="#000000",
-      background_color="#F8F9FA",
-      height=160,
-      width=220,
-      drawing_mode="freedraw",
-      key="canvas_supervisor",
-      return_image_data=True,
-  )
-with col_c2:
-  st.markdown("🛡️ **2. 安全监护人签字（可选）：**")
-  canvas_guardian = st_canvas(
-      stroke_width=3,
-      stroke_color="#000000",
-      background_color="#F8F9FA",
-      height=160,
-      width=220,
-      drawing_mode="freedraw",
-      key="canvas_guardian",
-      return_image_data=True,
-  )
-with col_c3:
-  st.markdown("✅ **3. 审批人签字（可选）：**")
-  canvas_approver = st_canvas(
-      stroke_width=3,
-      stroke_color="#000000",
-      background_color="#F8F9FA",
-      height=160,
-      width=220,
-      drawing_mode="freedraw",
-      key="canvas_approver",
-      return_image_data=True,
-  )
-
-current_date_str = datetime.date.today().strftime("%Y年%m月%d日")
-st.markdown(
-    f"**📅 手写签发日期栏（可选，当前系统日期为 {current_date_str}）：**"
-)
-canvas_date = st_canvas(
-    stroke_width=3,
-    stroke_color="#000000",
-    background_color="#F8F9FA",
-    height=130,
-    width=340,
-    drawing_mode="freedraw",
-    key="canvas_date_permit",
-    return_image_data=True,
-)
-
-
-def is_canvas_blank(canvas_obj):
-  return canvas_obj.image_data is None or (
-      canvas_obj.json_data is not None
-      and len(canvas_obj.json_data.get("objects", [])) == 0
-  )
 
 
 # ================= 11. 生成正式 Word《特种作业安全许可证》函数 =================
@@ -454,10 +392,6 @@ def generate_work_permit_docx(
     sup_name,
     grd_name,
     app_name,
-    sup_img_io,
-    grd_img_io,
-    app_img_io,
-    date_img_io,
 ):
   if not DOCX_AVAILABLE:
     return None
@@ -508,57 +442,24 @@ def generate_work_permit_docx(
   p_sig_head = doc.add_paragraph()
   r_sh = p_sig_head.add_run(
       "-------------------------------------------------------------------------\n"
-      "二、三方安全责任确认与签字（可在线手写或打印后线下手签）："
+      "二、三方安全责任确认与签字栏："
   )
   r_sh.bold = True
   r_sh.font.size = Pt(11)
   r_sh.font.name = "华文宋体"
   r_sh.font.element.rPr.rFonts.set(qn("w:eastAsia"), "华文宋体")
 
-  table = doc.add_table(rows=2, cols=2)
-  table.autofit = False
-
-  c00 = table.cell(0, 0).paragraphs[0]
-  r00 = c00.add_run(
-      f"1. 现场作业负责人：{sup_name if sup_name else '（签字：       ）'}\n"
+  p_sig = doc.add_paragraph()
+  r_s = p_sig.add_run(
+      f"1. 现场作业负责人：{sup_name}\n"
+      f"2. 安全监护人：{grd_name}\n"
+      f"3. 审批人：{app_name}\n"
+      f"4. 签发日期：{datetime.date.today().strftime('%Y年%m月%d日')}\n"
+      "（打印后可进行纸质手写签字确认）"
   )
-  r00.font.name = "华文宋体"
-  r00.font.size = Pt(10)
-  r00.font.element.rPr.rFonts.set(qn("w:eastAsia"), "华文宋体")
-  if sup_img_io:
-    c00.add_run().add_picture(sup_img_io, width=Inches(1.6))
-    sup_img_io.seek(0)
-
-  c01 = table.cell(0, 1).paragraphs[0]
-  r01 = c01.add_run(
-      f"2. 安全监护人：{grd_name if grd_name else '（签字：       ）'}\n"
-  )
-  r01.font.name = "华文宋体"
-  r01.font.size = Pt(10)
-  r01.font.element.rPr.rFonts.set(qn("w:eastAsia"), "华文宋体")
-  if grd_img_io:
-    c01.add_run().add_picture(grd_img_io, width=Inches(1.6))
-    grd_img_io.seek(0)
-
-  c10 = table.cell(1, 0).paragraphs[0]
-  r10 = c10.add_run(
-      f"3. 审批人：{app_name if app_name else '（签字：       ）'}\n"
-  )
-  r10.font.name = "华文宋体"
-  r10.font.size = Pt(10)
-  r10.font.element.rPr.rFonts.set(qn("w:eastAsia"), "华文宋体")
-  if app_img_io:
-    c10.add_run().add_picture(app_img_io, width=Inches(1.6))
-    app_img_io.seek(0)
-
-  c11 = table.cell(1, 1).paragraphs[0]
-  r11 = c11.add_run("4. 签发日期：\n")
-  r11.font.name = "华文宋体"
-  r11.font.size = Pt(10)
-  r11.font.element.rPr.rFonts.set(qn("w:eastAsia"), "华文宋体")
-  if date_img_io:
-    c11.add_run().add_picture(date_img_io, width=Inches(1.6))
-    date_img_io.seek(0)
+  r_s.font.size = Pt(10.5)
+  r_s.font.name = "华文宋体"
+  r_s.font.element.rPr.rFonts.set(qn("w:eastAsia"), "华文宋体")
 
   buffer = io.BytesIO()
   doc.save(buffer)
@@ -569,132 +470,3 @@ def generate_work_permit_docx(
 # ================= 12. 提交校验与生成合规档案 =================
 st.write("---")
 if st.button(
-    "📁 确认安全措施已落实，一键生成并下载《特种作业安全许可证》",
-    use_container_width=True,
-    type="primary",
-):
-  if not DOCX_AVAILABLE:
-    st.error(
-        "❌ 服务器未检测到 `python-docx` 库。请在 GitHub 仓库的"
-        " `requirements.txt` 文件中确保已正确写入 `python-docx` 并在后台重启应用！"
-    )
-  elif (
-      not work_location.strip()
-      or not work_unit.strip()
-      or not worker_names.strip()
-      or not work_content.strip()
-  ):
-    st.error("❌ 拦截：请完整填写【作业地点】、【作业单位】、【作业人员】及【作业内容】！")
-  elif not is_time_valid:
-    st.error(
-        "❌ 拦截：作业许可有效时间设置不合规（必须大于 0 且不超过 72"
-        " 小时），请重新核定签发与截止时间！"
-    )
-  elif not all(assessment_results):
-    st.warning(
-        "⚠️ 拦截：按照 GB 30871-2022"
-        " 强制性规范要求，现场所有安全评估项必须全部核实打钩后方可签发作业许可！"
-    )
-  else:
-    permit_number = f"PTW-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}"
-    st.success(
-        f"✅ 特种作业安全许可证审批表生成成功！许可证编号：**{permit_number}**"
-    )
-
-    def canvas_to_bytes_io_optional(canvas_obj):
-      if is_canvas_blank(canvas_obj):
-        return None
-      img = Image.fromarray(canvas_obj.image_data.astype("uint8"), "RGBA")
-      b_io = io.BytesIO()
-      img.save(b_io, format="PNG")
-      b_io.seek(0)
-      return b_io
-
-    sup_io = canvas_to_bytes_io_optional(canvas_supervisor)
-    grd_io = canvas_to_bytes_io_optional(canvas_guardian)
-    app_io = canvas_to_bytes_io_optional(canvas_approver)
-    dt_io = canvas_to_bytes_io_optional(canvas_date)
-
-    permit_docx_buffer = generate_work_permit_docx(
-        permit_number,
-        work_nature,
-        selected_work_type,
-        work_location.strip(),
-        work_unit.strip(),
-        worker_names.strip(),
-        work_content.strip(),
-        issue_datetime,
-        expire_datetime,
-        duration_hours,
-        current_assessment_items,
-        assessment_results,
-        supervisor_name.strip(),
-        guardian_name.strip(),
-        approver_name.strip(),
-        sup_io,
-        grd_io,
-        app_io,
-        dt_io,
-    )
-
-    if permit_docx_buffer:
-      docx_filename = f"特种作业审批单_{selected_work_type}_{work_location.strip()}_{permit_number}.docx"
-
-      zip_buffer = io.BytesIO()
-      with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-        zip_file.writestr(docx_filename, permit_docx_buffer.getvalue())
-        if sup_io:
-          zip_file.writestr(
-              f"作业负责人签字_{supervisor_name.strip()}.png",
-              sup_io.getvalue(),
-          )
-        if grd_io:
-          zip_file.writestr(
-              f"监护人签字_{guardian_name.strip()}.png", grd_io.getvalue()
-          )
-        if app_io:
-          zip_file.writestr(
-              f"审批人签字_{approver_name.strip()}.png", app_io.getvalue()
-          )
-        if dt_io:
-          zip_file.writestr("手写签发日期.png", dt_io.getvalue())
-
-        upload_to_baidu_netdisk_with_auto_refresh(
-            permit_docx_buffer.getvalue(), docx_filename
-        )
-
-      zip_buffer.seek(0)
-
-      st.markdown("---")
-      st.success(
-          "🎉 特种作业审批档案已生成完毕！推荐直接下载 Word 后进行打印与线下签字："
-      )
-
-      col_dl1, col_dl2 = st.columns(2)
-      with col_dl1:
-        st.download_button(
-            label="📄 下载《特种作业安全许可证》(.docx) [最适合直接打印]",
-            data=permit_docx_buffer.getvalue(),
-            file_name=docx_filename,
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            use_container_width=True,
-        )
-      with col_dl2:
-        st.download_button(
-            label="📥 一键打包下载完整审批档案 (.ZIP)",
-            data=zip_buffer,
-            file_name=f"特种作业审批档案_{permit_number}.zip",
-            mime="application/zip",
-            use_container_width=True,
-        )
-
-      st.snow()
-
-# ================= 13. 底部版权与开发者声明 =================
-st.markdown("---")
-st.markdown(
-    "<div style='text-align: center; color: gray; font-size: 14px;'>"
-    "本系统为内部合规平台，严禁商业用途 | 开发者：陈野菲 wx：13761704998"
-    "</div>",
-    unsafe_allow_html=True,
-)
