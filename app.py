@@ -1,21 +1,7 @@
 import datetime
 import io
 import os
-import subprocess
-import sys
 import zipfile
-
-# 终极防崩溃：如果云端没有安装 docx，通过代码自动帮它安装！
-try:
-  from docx import Document
-  from docx.oxml.ns import qn
-  from docx.shared import Inches, Pt, RGBColor
-except ImportError:
-  subprocess.check_call([sys.executable, "-m", "pip", "install", "python-docx"])
-  from docx import Document
-  from docx.oxml.ns import qn
-  from docx.shared import Inches, Pt, RGBColor
-
 import pandas as pd
 from PIL import Image, ImageDraw, ImageFont
 import requests
@@ -109,7 +95,7 @@ GB30871_SPECIFIC_ITEMS = {
         "【动火-电焊机规范】电焊机外壳可靠接地，焊把线绝缘良好无裸露；接地线直接接在被焊构件上，未使用厂房金属结构、管道或设备作为回路。",
     ],
     "临时用电作业": [
-        "【临电-一机一闸】临时用电配电箱完好，严格执行“一机一闸一保护”，已安装合格的漏电保护器（RCD），经测试动作灵敏可靠（GB 30871 第10章）。",
+        "【临电-一机一闸】临时用电配电箱完好，严格执行“一机一闸一保护”,已安装合格的漏电保护器（RCD），经测试动作灵敏可靠（GB 30871 第10章）。",
         "【临电-接地与防爆】所有临时用电设备及金属外壳均已实施可靠保护接地或接零；存在爆炸或火灾危险场所的电气元件符合相应防爆等级要求。",
         "【临电-线路敷设】采用耐压等级不低于 500V 的绝缘铜芯导线；架空敷设时最大弧垂距地面不低于 2.5m（跨越道路不低于 5m）；地面走线已加装防砸、防碾压护套管。",
         "【临电-警示与防护】配电箱、开关箱设有明显的安全警示标识，防雨、防尘、防潮措施到位；检修或非作业期间严格执行上锁挂牌（LOTO）。",
@@ -417,6 +403,11 @@ def generate_work_permit_docx(
     grd_io,
     app_io,
 ):
+  # 在函数内部进行动态导入，彻底杜绝开机崩溃
+  from docx import Document
+  from docx.oxml.ns import qn
+  from docx.shared import Inches, Pt, RGBColor
+
   doc = Document()
 
   p_title = doc.add_paragraph()
@@ -555,26 +546,33 @@ if st.button(
     grd_io = create_signature_image(guardian_name)
     app_io = create_signature_image(approver_name)
 
-    permit_docx_buffer = generate_work_permit_docx(
-        permit_number,
-        work_nature,
-        selected_work_type,
-        work_location.strip(),
-        work_unit.strip(),
-        worker_names.strip(),
-        work_content.strip(),
-        issue_datetime,
-        expire_datetime,
-        duration_hours,
-        current_assessment_items,
-        assessment_results,
-        supervisor_name.strip(),
-        guardian_name.strip(),
-        approver_name.strip(),
-        sup_io,
-        grd_io,
-        app_io,
-    )
+    try:
+      permit_docx_buffer = generate_work_permit_docx(
+          permit_number,
+          work_nature,
+          selected_work_type,
+          work_location.strip(),
+          work_unit.strip(),
+          worker_names.strip(),
+          work_content.strip(),
+          issue_datetime,
+          expire_datetime,
+          duration_hours,
+          current_assessment_items,
+          assessment_results,
+          supervisor_name.strip(),
+          guardian_name.strip(),
+          approver_name.strip(),
+          sup_io,
+          grd_io,
+          app_io,
+      )
+    except Exception as e:
+      st.error(
+          f"❌ 生成 Word 文件时出错：{str(e)}。请确保在 GitHub 的"
+          " requirements.txt 中已配置 python-docx。"
+      )
+      permit_docx_buffer = None
 
     if permit_docx_buffer:
       docx_filename = f"特种作业审批单_{selected_work_type}_{work_location.strip()}_{permit_number}.docx"
