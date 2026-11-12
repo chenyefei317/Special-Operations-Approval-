@@ -122,7 +122,7 @@ GB30871_SPECIFIC_ITEMS = {
     ],
     "吊装作业": [
         "【吊装-机具资质】起重机械、吊索具、卡环经检查完好且在检验有效期内，司索工、指挥人员及起重工均持有效特种作业证（GB 30871 第9章）。",
-        "【吊装-警戒试吊】吊装区域已设置安全警戒区；正式起吊前已进行试吊，确认制动、吊点及平衡状态正常，严格遵守“十不吊”规定。",
+        "【吊装-警戒试吊】吊装区域已设置安全警戒区；正式起吊前已进行试吊，确认制动, 吊点及平衡状态正常，严格遵守“十不吊”规定。",
     ],
     "盲板抽堵作业": [
         "【盲板-系统泄压】设备管道已完成卸压、排空与置换，已绘制盲板位置图并统一编号，盲板材质、厚度及垫片符合介质压力要求（GB 30871 第7章）。",
@@ -228,7 +228,7 @@ with col_title:
 
 st.markdown(
     "本系统严格依据国家标准 **GB 30871-2022《危险化学品企业特殊作业安全规范》**"
-    " 建设。责任人签字支持输入姓名，生成 Word 文档后可打印进行线下纸质签字。"
+    " 建设。支持在线输入电子签名姓名，自动生成高清签名图片并写入 Word 审批单中。"
 )
 
 # ================= 7. 模块一：作业性质、类型与基础信息 =================
@@ -352,30 +352,49 @@ for i, item_text in enumerate(current_assessment_items):
   checked = st.checkbox(item_text, key=chk_key)
   assessment_results.append(checked)
 
-# ================= 10. 模块四：三方责任人签字（文本输入） =================
+# ================= 10. 模块四：三方责任人签字栏（电子签名输入） =================
 st.write("---")
-st.subheader("✍️ 4. 三方责任人与签发日期确认")
+st.subheader("✍️ 4. 三方责任人电子签名与签发日期")
 
 col_p1, col_p2, col_p3 = st.columns(3)
 with col_p1:
   supervisor_name = st.text_input(
-      "现场作业负责人姓名 (必填)：", placeholder="例如：张三"
+      "现场作业负责人签字姓名：", placeholder="例如：张三"
   )
 with col_p2:
   guardian_name = st.text_input(
-      "安全监护人姓名 (必填)：", placeholder="例如：李四"
+      "安全监护人签字姓名：", placeholder="例如：李四"
   )
 with col_p3:
-  approver_name = st.text_input(
-      "审批人姓名 (必填)：", placeholder="例如：王五"
-  )
+  approver_name = st.text_input("审批人签字姓名：", placeholder="例如：王五")
 
 st.markdown(
-    "💡 **提示**：输入上述姓名后将直接打印生成至 Word 审批单中，方便打印后进行纸质手写签字。"
+    "💡 **提示**：输入上述姓名后，系统将在后台自动生成标准手写签名图片并写入 Word"
+    " 审批单中。"
 )
 
 
-# ================= 11. 生成正式 Word《特种作业安全许可证》函数 =================
+# ================= 11. 辅助函数：将文字转为签名图片 =================
+def create_signature_image(name_str):
+  if not name_str.strip():
+    return None
+  # 创建一张空白透明底或浅灰底的签名图片
+  img = Image.new("RGBA", (180, 60), color=(248, 249, 250, 255))
+  d = ImageDraw.Draw(img)
+  try:
+    font = ImageFont.truetype("simsun.ttc", 22)
+  except Exception:
+    font = ImageFont.load_default()
+
+  # 绘制手写风格蓝色/黑色签名文字
+  d.text((15, 15), name_str.strip(), fill=(10, 30, 120, 255), font=font)
+  bio = io.BytesIO()
+  img.save(bio, format="PNG")
+  bio.seek(0)
+  return bio
+
+
+# ================= 12. 生成正式 Word《特种作业安全许可证》函数 =================
 def generate_work_permit_docx(
     permit_no,
     w_nature,
@@ -392,6 +411,9 @@ def generate_work_permit_docx(
     sup_name,
     grd_name,
     app_name,
+    sup_io,
+    grd_io,
+    app_io,
 ):
   if not DOCX_AVAILABLE:
     return None
@@ -442,24 +464,55 @@ def generate_work_permit_docx(
   p_sig_head = doc.add_paragraph()
   r_sh = p_sig_head.add_run(
       "-------------------------------------------------------------------------\n"
-      "二、三方安全责任确认与签字栏："
+      "二、三方安全责任确认与电子签名："
   )
   r_sh.bold = True
   r_sh.font.size = Pt(11)
   r_sh.font.name = "华文宋体"
   r_sh.font.element.rPr.rFonts.set(qn("w:eastAsia"), "华文宋体")
 
-  p_sig = doc.add_paragraph()
-  r_s = p_sig.add_run(
-      f"1. 现场作业负责人：{sup_name}\n"
-      f"2. 安全监护人：{grd_name}\n"
-      f"3. 审批人：{app_name}\n"
-      f"4. 签发日期：{datetime.date.today().strftime('%Y年%m月%d日')}\n"
-      "（打印后可进行纸质手写签字确认）"
+  table = doc.add_table(rows=2, cols=2)
+  table.autofit = False
+
+  # 1. 现场作业负责人
+  c00 = table.cell(0, 0).paragraphs[0]
+  r00 = c00.add_run(
+      f"1. 现场作业负责人：{sup_name if sup_name else '（未签字）'}\n"
   )
-  r_s.font.size = Pt(10.5)
-  r_s.font.name = "华文宋体"
-  r_s.font.element.rPr.rFonts.set(qn("w:eastAsia"), "华文宋体")
+  r00.font.name = "华文宋体"
+  r00.font.size = Pt(10)
+  r00.font.element.rPr.rFonts.set(qn("w:eastAsia"), "华文宋体")
+  if sup_io:
+    c00.add_run().add_picture(sup_io, width=Inches(1.5))
+
+  # 2. 安全监护人
+  c01 = table.cell(0, 1).paragraphs[0]
+  r01 = c01.add_run(
+      f"2. 安全监护人：{grd_name if grd_name else '（未签字）'}\n"
+  )
+  r01.font.name = "华文宋体"
+  r01.font.size = Pt(10)
+  r01.font.element.rPr.rFonts.set(qn("w:eastAsia"), "华文宋体")
+  if grd_io:
+    c01.add_run().add_picture(grd_io, width=Inches(1.5))
+
+  # 3. 审批人
+  c10 = table.cell(1, 0).paragraphs[0]
+  r10 = c10.add_run(f"3. 审批人：{app_name if app_name else '（未签字）'}\n")
+  r10.font.name = "华文宋体"
+  r10.font.size = Pt(10)
+  r10.font.element.rPr.rFonts.set(qn("w:eastAsia"), "华文宋体")
+  if app_io:
+    c10.add_run().add_picture(app_io, width=Inches(1.5))
+
+  # 4. 签发日期
+  c11 = table.cell(1, 1).paragraphs[0]
+  r11 = c11.add_run(
+      f"4. 签发日期：{datetime.date.today().strftime('%Y年%m月%d日')}\n"
+  )
+  r11.font.name = "华文宋体"
+  r11.font.size = Pt(10)
+  r11.font.element.rPr.rFonts.set(qn("w:eastAsia"), "华文宋体")
 
   buffer = io.BytesIO()
   doc.save(buffer)
@@ -467,7 +520,7 @@ def generate_work_permit_docx(
   return buffer
 
 
-# ================= 12. 提交校验与生成合规档案 =================
+# ================= 13. 提交校验与生成合规档案 =================
 st.write("---")
 if st.button(
     "📁 确认安全措施已落实，一键生成并下载《特种作业安全许可证》",
@@ -480,13 +533,8 @@ if st.button(
       or not work_unit.strip()
       or not worker_names.strip()
       or not work_content.strip()
-      or not supervisor_name.strip()
-      or not guardian_name.strip()
-      or not approver_name.strip()
   ):
-    st.error(
-        "❌ 拦截：请完整填写【作业地点】、【作业单位】、【作业人员】、【作业内容】以及【三方签字人姓名】！"
-    )
+    st.error("❌ 拦截：请完整填写【作业地点】、【作业单位】、【作业人员】及【作业内容】！")
   elif not is_time_valid:
     st.error(
         "❌ 拦截：作业许可有效时间设置不合规（必须大于 0 且不超过 72"
@@ -502,6 +550,10 @@ if st.button(
     st.success(
         f"✅ 特种作业安全许可证审批表生成成功！许可证编号：**{permit_number}**"
     )
+
+    sup_io = create_signature_image(supervisor_name)
+    grd_io = create_signature_image(guardian_name)
+    app_io = create_signature_image(approver_name)
 
     permit_docx_buffer = generate_work_permit_docx(
         permit_number,
@@ -519,6 +571,9 @@ if st.button(
         supervisor_name.strip(),
         guardian_name.strip(),
         approver_name.strip(),
+        sup_io,
+        grd_io,
+        app_io,
     )
 
     if permit_docx_buffer:
@@ -544,7 +599,7 @@ if st.button(
 
       st.snow()
 
-# ================= 13. 底部版权与开发者声明 =================
+# ================= 14. 底部版权与开发者声明 =================
 st.markdown("---")
 st.markdown(
     "<div style='text-align: center; color: gray; font-size: 14px;'>"
