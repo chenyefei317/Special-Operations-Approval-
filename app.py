@@ -3,13 +3,12 @@ import io
 import os
 import zipfile
 import pandas as pd
-import qrcode
 from PIL import Image, ImageDraw, ImageFont
 import requests
 import streamlit as st
 from streamlit_drawable_canvas import st_canvas
 
-# 尝试安全导入 python-docx，防止云端未安装时直接崩溃
+# 尝试安全导入 python-docx
 try:
   from docx import Document
   from docx.oxml.ns import qn
@@ -196,59 +195,27 @@ def upload_to_baidu_netdisk_with_auto_refresh(file_bytes, remote_filename):
     return False, f"网盘上传异常: {str(e)}"
 
 
-# ================= 5. 侧边栏：Logo与带有“EHS野哥”文字提示的微信二维码 =================
+# ================= 5. 侧边栏：Logo与链接分享 =================
 with st.sidebar:
   try:
     st.image("logo.png", width=160)
   except Exception:
     pass
 
-  st.markdown("### 📱 微信扫码与分享")
+  st.markdown("### 📱 手机访问与分享")
   st.write(
-      "手机微信扫码下方二维码，随时随地在线填报特种作业审批并生成许可证。"
+      "请将下方应用链接复制并发送至微信群，供现场人员随时随地在线填报特种作业审批。"
   )
 
   app_url = st.text_input(
       "应用公网链接 (URL)", value="https://special-work-permit.streamlit.app/"
   )
 
-  if app_url:
-    qr = qrcode.QRCode(version=1, box_size=10, border=2)
-    qr.add_data(app_url)
-    qr.make(fit=True)
-    qr_img = qr.make_image(fill_color="black", back_color="white").convert(
-        "RGB"
-    )
-
-    draw = ImageDraw.Draw(qr_img)
-    w, h = qr_img.size
-    box_w, box_h = 120, 36
-    box_x = (w - box_w) / 2
-    box_y = (h - box_h) / 2
-    draw.rectangle(
-        [box_x, box_y, box_x + box_w, box_y + box_h],
-        fill="white",
-        outline="black",
-        width=2,
-    )
-    try:
-      font = ImageFont.truetype("simsun.ttc", 14)
-    except Exception:
-      font = ImageFont.load_default()
-    draw.text((box_x + 18, box_y + 10), "EHS野哥", fill="black", font=font)
-
-    img_buffer = io.BytesIO()
-    qr_img.save(img_buffer, format="PNG")
-    st.image(
-        Image.open(img_buffer),
-        caption="【手机扫码：EHS野哥特种作业审批】",
-        width=160,
-    )
-
   st.markdown("---")
   st.markdown("### 🔗 快捷操作")
   st.info(
-      "💡 **复制链接提示**：请直接复制上方输入框内的网址，或点击浏览器地址栏复制发送至微信群。"
+      "💡 **提示**：承包商可通过手机浏览器或微信直接打开上方链接填报。特种作业有效期限最长不超过"
+      " **72 小时**。"
   )
 
 # ================= 6. 主界面头部 =================
@@ -262,7 +229,9 @@ with col_title:
   st.markdown("## 特种作业安全许可与在线审批系统")
 
 st.markdown(
-    "本系统严格依据国家标准 **GB 30871-2022《危险化学品企业特殊作业安全规范》** 建设。手写签字为选填项，生成 Word 文档后可直接下载打印进行线下纸质签字。"
+    "本系统严格依据国家标准 **GB 30871-2022《危险化学品企业特殊作业安全规范》**"
+    " 建设。手写签字为选填项，生成 Word"
+    " 文档后可直接下载打印进行线下纸质签字。"
 )
 
 # ================= 7. 模块一：作业性质、类型与基础信息 =================
@@ -340,12 +309,15 @@ if duration_hours <= 0:
   st.error("❌ 时间设置错误：【截止日期/时间】必须晚于【签发日期/时间】！")
 elif duration_hours > 72.0:
   st.error(
-      f"❌ 违反合规限值：当前设置的作业有效时长为 **{duration_hours:.1f} 小时**，已超过最长 **72 小时上限**！请缩短截止时间。"
+      f"❌ 违反合规限值：当前设置的作业有效时长为 **{duration_hours:.1f}"
+      " 小时**，已超过最长 **72 小时上限**！请缩短截止时间。"
   )
 else:
   is_time_valid = True
   st.success(
-      f"✅ 许可有效期核验通过：自 **{issue_datetime.strftime('%Y-%m-%d %H:%M')}** 至 **{expire_datetime.strftime('%Y-%m-%d %H:%M')}**（共计 **{duration_hours:.1f} 小时**，符合 ≤72 小时合规限值）。"
+      f"✅ 许可有效期核验通过：自 **{issue_datetime.strftime('%Y-%m-%d %H:%M')}"
+      f"** 至 **{expire_datetime.strftime('%Y-%m-%d %H:%M')}**（共计"
+      f" **{duration_hours:.1f} 小时**，符合 ≤72 小时合规限值）。"
   )
 
 # ================= 9. 模块三：现场安全评估（GB 30871-2022 标准打钩） =================
@@ -400,7 +372,8 @@ with col_p3:
   approver_name = st.text_input("审批人姓名：", placeholder="选填（如：王五）")
 
 st.markdown(
-    "💡 **提示**：若不在此处画板手写签名，生成的 Word 文件中将保留空白签名栏，方便打印后纸质手写签字。"
+    "💡 **提示**：若不在此处画板手写签名，生成的 Word"
+    " 文件中将保留空白签名栏，方便打印后纸质手写签字。"
 )
 
 col_c1, col_c2, col_c3 = st.columns(3)
@@ -506,7 +479,8 @@ def generate_work_permit_docx(
       f"作业人员及证号：{w_workers}\n"
       f"作业内容及工器具：{w_content}\n"
       f"许可签发时间：{dt_issue.strftime('%Y-%m-%d %H:%M')}\n"
-      f"许可截止时间：{dt_expire.strftime('%Y-%m-%d %H:%M')} （有效时长：{dur_hrs:.1f} 小时，符合 ≤72 小时合规限值）\n"
+      f"许可截止时间：{dt_expire.strftime('%Y-%m-%d %H:%M')} （有效时长："
+      f" {dur_hrs:.1f} 小时，符合 ≤72 小时合规限值）\n"
       "-------------------------------------------------------------------------"
   )
   r_meta.font.size = Pt(10.5)
@@ -601,7 +575,8 @@ if st.button(
 ):
   if not DOCX_AVAILABLE:
     st.error(
-        "❌ 服务器未检测到 `python-docx` 库。请在 GitHub 仓库的 `requirements.txt` 文件中确保已正确写入 `python-docx` 并在后台重启应用！"
+        "❌ 服务器未检测到 `python-docx` 库。请在 GitHub 仓库的"
+        " `requirements.txt` 文件中确保已正确写入 `python-docx` 并在后台重启应用！"
     )
   elif (
       not work_location.strip()
@@ -612,11 +587,13 @@ if st.button(
     st.error("❌ 拦截：请完整填写【作业地点】、【作业单位】、【作业人员】及【作业内容】！")
   elif not is_time_valid:
     st.error(
-        "❌ 拦截：作业许可有效时间设置不合规（必须大于 0 且不超过 72 小时），请重新核定签发与截止时间！"
+        "❌ 拦截：作业许可有效时间设置不合规（必须大于 0 且不超过 72"
+        " 小时），请重新核定签发与截止时间！"
     )
   elif not all(assessment_results):
     st.warning(
-        "⚠️ 拦截：按照 GB 30871-2022 强制性规范要求，现场所有安全评估项必须全部核实打钩后方可签发作业许可！"
+        "⚠️ 拦截：按照 GB 30871-2022"
+        " 强制性规范要求，现场所有安全评估项必须全部核实打钩后方可签发作业许可！"
     )
   else:
     permit_number = f"PTW-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}"
