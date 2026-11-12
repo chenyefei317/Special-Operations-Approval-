@@ -2,20 +2,13 @@ import datetime
 import io
 import os
 import zipfile
+from docx import Document
+from docx.oxml.ns import qn
+from docx.shared import Inches, Pt, RGBColor
 import pandas as pd
 from PIL import Image, ImageDraw, ImageFont
 import requests
 import streamlit as st
-
-# 安全尝试导入 python-docx，防止云端未安装时开机崩溃
-try:
-  from docx import Document
-  from docx.oxml.ns import qn
-  from docx.shared import Inches, Pt, RGBColor
-
-  DOCX_AVAILABLE = True
-except ImportError:
-  DOCX_AVAILABLE = False
 
 # ================= 1. 页面配置与初始化 =================
 st.set_page_config(
@@ -413,9 +406,6 @@ def generate_work_permit_docx(
     grd_io,
     app_io,
 ):
-  if not DOCX_AVAILABLE:
-    return None
-
   doc = Document()
 
   p_title = doc.add_paragraph()
@@ -527,12 +517,7 @@ if st.button(
     "📁 确认安全措施已落实，一键生成并下载《特种作业安全许可证》",
     use_container_width=True,
 ):
-  if not DOCX_AVAILABLE:
-    st.error(
-        "❌ 服务器未检测到 `python-docx` 库。请在 GitHub 仓库的"
-        " `requirements.txt` 文件中确保已正确写入 `python-docx` 并在后台重启应用！"
-    )
-  elif (
+  if (
       not work_location.strip()
       or not work_unit.strip()
       or not worker_names.strip()
