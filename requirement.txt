@@ -1,5 +1,0 @@
-streamlit
-pandas
-Pillow
-python-docx
-requests
